@@ -1,5 +1,5 @@
-# The implementation of the script was done by the community member jokoum (https://forum.robin-language.org/u/jokoum)
-# I merely implemented some comments and formatted the script to make more intelligible
+# The implementation of the script was done by the community member jokoum (https://forum.robin-language.org/u/jokoum).
+# I merely added some comments and formatted the script to make it more intelligible.
 
 # Get the user's name from the USENAME enviromnemt variable
 System.GetEnvironmentVariable   Name: 'USERNAME' \
