@@ -1,0 +1,85 @@
+# The implementation of the script was done by the community member jokoum (https://forum.robin-language.org/u/jokoum)
+# I merely implemented some comments and formatted the script to make more intelligible
+
+# Get the user's name from the USENAME enviromnemt variable
+System.GetEnvironmentVariable   Name: 'USERNAME' \
+                                Value=> User
+
+# Download the .xlsx file from the "RPA Challenge - Input Forms" page
+# and store it in the 'Downloads' folder of the PC
+Web.DownloadToFolder    Url: 'http://rpachallenge.com/assets/downloadFiles/challenge.xlsx' \
+                        DestinationFolder: 'C:\Users\\'+User+'\Downloads' ConnectionTimeout:30 \
+                        FollowRedirection:True \
+                        ClearCookies:False \
+                        UserAgent:'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.21) Gecko/20100312 Firefox/3.6' \
+                        Encoding:'' \
+                        DownloadedFile=> DownloadedFile
+
+# Launch a new Excel instance and oped the downloaded .xlsx
+Excel.LaunchAndOpen Path: DownloadedFile \
+                    Visible:False \
+                    Password:'' \
+                    ReadOnly:False \
+                    LoadAddInsAndMacros:False \
+                    Instance=> ExcelInstance
+
+# Get the first free column/row
+Excel.GetFirstFreeColumnRow Instance: ExcelInstance \
+                            FirstFreeColumn=> FirstFreeColumn \
+                            FirstFreeRow=> FirstFreeRow
+
+# Get all the values from the Excel instance.
+# In order to get only valuable info (populated cells) we can utilize the 'FirstFreeColumn/Row' variables from the previous step.
+# The exact previous position (FirstFreeColumn-1 and FirstFreeRow-1) is where the outermost entry is located.
+Excel.ReadCells Instance: ExcelInstance \
+                StartColumn: 1 \
+                StartRow: 1 \
+                EndColumn: (FirstFreeColumn - 1) \
+                EndRow: (FirstFreeRow - 1) \
+                ReadAsText:False \
+                FirstLineIsHeader:True \
+                Value=> QueryResult
+
+# Close the Excel instance.
+Excel.Close Instance: ExcelInstance
+
+# Delete the now redundant download file.
+File.Delete Files: DownloadedFile
+
+# Launch Firefox and visit rpachallenge.com 
+WebAutomation.LaunchFirefox Url: 'http://www.rpachallenge.com/' \
+                            WindowState:WebAutomation.BrowserWindowState.Normal \
+                            ClearCache:False \
+                            ClearCookies:False \
+                            BrowserInstance=> Browser
+
+# Execute Javascript code to click the START button.
+WebAutomation.ExecuteJavascript BrowserInstance: Browser \
+                                Javascript:'function ExecuteScript() { document.querySelector(\'button\').click(); }' \
+                                Result=> Result
+
+# Execute the following Javascript function for each row in the downloaded excel file
+# Note that we know the contents of each column, for example the FirstName values are in the first column of the .xlsx file, 
+# the Last Name values are in the second etc.
+# Each row contains the information of a different individual.
+# In each iteration we are getting the entries per row.
+# By utilizing Javascript we are explicitly telling the script to input each value in a ng-reflect-name attribute of the inputs in the screen. 
+# This way we don't care about the position on the screen, since the inputs change position every time the page refreshes.
+# Finally when every input has been populated, we click on the "SUBMIT" button.
+loop i from 0 to QueryResult.rows.count-1 step 1
+    WebAutomation.ExecuteJavascript BrowserInstance: Browser \
+                                    Javascript: '''
+                                                function ExecuteScript() {
+                                                    document.querySelector(\'input[ng-reflect-name="labelFirstName"]\').value = \'''' + QueryResult[i][0] + '''\';
+                                                    document.querySelector(\'input[ng-reflect-name="labelLastName"]\').value = \'''' + QueryResult[i][1] + '''\';
+                                                    document.querySelector(\'input[ng-reflect-name="labelCompanyName"]\').value = \'''' + QueryResult[i][2] + '''\';
+                                                    document.querySelector(\'input[ng-reflect-name="labelRole"]\').value = \'''' + QueryResult[i][3] + '''\';
+                                                    document.querySelector(\'input[ng-reflect-name="labelAddress"]\').value = \'''' + QueryResult[i][4] + '''\';
+                                                    document.querySelector(\'input[ng-reflect-name="labelEmail"]\').value = \'''' + QueryResult[i][5] + '''\';
+                                                    document.querySelector(\'input[ng-reflect-name="labelPhone"]\').value = \'''' + QueryResult[i][6] + '''\';
+                                                    
+                                                    document.querySelector(\'input[value="Submit"]\').click(); 
+                                                }
+                                                ''' \
+                                    Result=> Result
+end
